@@ -1,95 +1,72 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 import rospy
-from std_msgs.msg import String
+from geometry_msgs.msg import Twist
 import Robot
-import time 
+import time
 import RPi.GPIO as GPIO
 
 # Use board based pin numbering
 GPIO.setmode(GPIO.BOARD)
 
+class Driver:
+    def __init__(self):
+        rospy.init_node('driver')
 
-leftTrim = 0
-rightTrim = 0
+        self._wheel_base = rospy.get_param('~wheel_base', 0.1)
+        self._max_speed = rospy.get_param('~max_speed', 0.9)
+        self._timeout = rospy.get_param('~timeout', 2)
+        self._rate = rospy.get_param('~rate', 10)
 
-robot = Robot.Robot(left_trim=leftTrim, right_trim=rightTrim)
+        self._last_received = rospy.get_time()
+        self._left_speed_percent = 0
+        self._right_speed_percent = 0
 
+        self._robot = Robot.Robot(left_trim=rospy.get_param('~left_trim', 0.0),
+                                  right_trim=rospy.get_param('~right_trim', 0.0))
 
-def forward():
-    print("Forward")
-    robot.forward(50, 1.00)
+        rospy.Subscriber('cmd_vel', Twist, self.velocity_received_callback)
 
-def back():
-    print("Back")
-    robot.backward(50, 1.00)
+    def stop(self):
+        self._robot.stop()
 
-def left():
-    print("Left")
-    robot.left(50, 1.00)
+    # Message handler
+    def velocity_received_callback(self, message):
+        self._last_received = rospy.get_time()
 
-def right():
-    print("Right")
-    robot.right(50, 1.00)
+        # extract linear and angular velocities
+        linear = message.linear.x
+        angular = message.angular.z
 
-def stop():
-    print("Stop")
-    robot.stop()
+        # Calculate wheel speeds in m/s
+        left_speed = linear - angular*self._wheel_base/2
+        right_speed = linear + angular*self._wheel_base/2
 
-def readDistance(pin):
-    GPIO.setup(pin, GPIO.OUT)
-    GPIO.output(pin, 0)
-    time.sleep(0.000002)
-    #send trigger signal
-    GPIO.output(pin, 1)
-    time.sleep(0.000005)
-    GPIO.output(pin, 0)
-    GPIO.setup(pin, GPIO.IN)
+        self._left_speed_percent = 100 * left_speed/self._max_speed
+        self._right_speed_percent = 100 * right_speed/self._max_speed
+        print("%d: l: %f, r: %f" % (self._last_received, self._left_speed_percent, self._right_speed_percent))
 
-    while GPIO.input(pin)==0:
-        starttime=time.time()
+    def run(self):
+        rate = rospy.Rate(self._rate)
 
-    while GPIO.input(pin)==1:
-        endtime=time.time()
+        while not rospy.is_shutdown():
+            # If we haven't received new commands for a while, we
+            # may have lost contact with the commander-- stop
+            # moving
+            delay = rospy.get_time() - self._last_received
+            if delay < self._timeout:
+                self._robot.left(self._left_speed_percent)
+                self._robot.right(self._right_speed_percent)
+            else:
+                self._robot.left(0)
+                self._robot.right(0)
 
-    duration=endtime-starttime
-    # Distance is defined as time/2 (there and back) * speed of sound 34000 cm/s 
-    distance=duration*34000/2
-    return distance
+            rate.sleep()
 
-# Message handler
-def CommandCallback(commandMessage):
-    command = commandMessage.data
-    print(command)
-    for i in range(5): 
-#        if command != "Back" and command != "Stop":
-#            if readDistance(11) < 15:
-#                print("Stopping due to obstruction!")
-#                stop()
-#                break
-        
-        if command == 'Forward':
-            print('Moving forwards')
-            forward()
-        elif command == 'Back':
-            print('Moving backwards')
-            back()
-        elif command == 'Left':
-            print('Turning left')
-            left()
-        elif command == 'Right':
-            print('Turning right')
-            right()
-        elif command == 'Stop':
-            print('Stopping')
-            stop()
-        else:
-           print('Unknown command, stopping instead')
-           stop()
+def main():
+    driver = Driver()
 
-rospy.init_node('driver')
+    # Run driver. This will block
+    driver.run()
 
-rospy.Subscriber('command', String, CommandCallback)
-
-rospy.spin()
-print('Shutting down: stopping motors')
-stop()
+if __name__ == '__main__':
+    main()
