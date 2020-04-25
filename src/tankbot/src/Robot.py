@@ -63,11 +63,11 @@ class Robot(object):
         # Set motor speed and move both forward.
         dir = Raspi_MotorHAT.FORWARD if speed_percent >= 0 else Raspi_MotorHAT.BACKWARD
         self._right.run(dir)
-        self._right_speed(int(abs(speed_percent) * 255 / 100))
+        self._right_speed(max(0, min(100, int(abs(speed_percent) * 255 / 100))))
 
     def left(self, speed_percent):
         """Drive left motor at speed_percent"""
         # Set motor speed and move both forward.
         dir = Raspi_MotorHAT.FORWARD if speed_percent >= 0 else Raspi_MotorHAT.BACKWARD
         self._left.run(dir)
-        self._left_speed(int(abs(speed_percent) * 255 / 100))
+        self._left_speed(max(0, min(100, int(abs(speed_percent) * 255 / 100))))
