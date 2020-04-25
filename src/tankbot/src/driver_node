@@ -12,8 +12,8 @@ class Driver:
     def __init__(self):
         rospy.init_node('driver')
 
-        self._wheel_base = rospy.get_param('~wheel_base', 0.1)
-        self._max_speed = rospy.get_param('~max_speed', 0.9)
+        self._wheel_base = rospy.get_param('~wheel_base', 0.50)
+        self._max_speed = rospy.get_param('~max_speed', 0.5)
         self._timeout = rospy.get_param('~timeout', 2)
         self._rate = rospy.get_param('~rate', 10)
 
@@ -43,7 +43,6 @@ class Driver:
 
         self._left_speed_percent = 100 * left_speed/self._max_speed
         self._right_speed_percent = 100 * right_speed/self._max_speed
-        print("%d: l: %f, r: %f" % (self._last_received, self._left_speed_percent, self._right_speed_percent))
 
     def run(self):
         rate = rospy.Rate(self._rate)
