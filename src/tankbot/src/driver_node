@@ -24,7 +24,7 @@ class Driver:
         self._robot = Robot.Robot(left_trim=rospy.get_param('~left_trim', 0.0),
                                   right_trim=rospy.get_param('~right_trim', 0.0))
 
-        rospy.Subscriber('cmd_vel', Twist, self.velocity_received_callback)
+        rospy.Subscriber('joy_teleop/cmd_vel', Twist, self.velocity_received_callback)
 
     def stop(self):
         self._robot.stop()
